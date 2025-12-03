@@ -147,6 +147,50 @@ builder.mutationType({
       },
     }),
 
+    // BONUS: updateTaskTitle mutation
+    updateTaskTitle: t.prismaField({
+      type: "Task",
+      nullable: true,
+      args: {
+        id: t.arg.id({ required: true }),
+        title: t.arg.string({ required: true }),
+      },
+      resolve: async (query, root, args) => {
+        try {
+          const id = TaskValidation.id.parse(Number(args.id));
+          const title = TaskValidation.title.parse(args.title);
+
+          const existingTask = await prisma.task.findUnique({
+            where: { id },
+          });
+
+          if (!existingTask) {
+            return null;
+          }
+
+          return await prisma.task.update({
+            where: { id },
+            data: {
+              title,
+              updatedAt: new Date(),
+            },
+          });
+        } catch (error) {
+          if (error instanceof z.ZodError) {
+            throw new Error(
+              `Validation error: ${
+                error.issues[0]?.message || "Validation failed"
+              }`
+            );
+          }
+          if (error instanceof Error) {
+            throw new Error(`Failed to update task title: ${error.message}`);
+          }
+          throw new Error("Failed to update task title");
+        }
+      },
+    }),
+
     // toggleTask mutation
     toggleTask: t.prismaField({
       type: "Task",
