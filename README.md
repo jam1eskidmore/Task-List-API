@@ -36,4 +36,8 @@ Follow the instructions below to get the project up and running on your machine.
     createdAt
     updatedAt
   }
-}`
+}`.
+
+## Bonus: Improving error handling
+
+One way to improve error handling would be to create a handleError function to use within the `schema.ts` file. This function would take the error and attempted operation as parameters, returning custom error messages based on the input. The handleError function would improve the project by reducing repetition within the query and mutation functions.
