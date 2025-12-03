@@ -1,7 +1,6 @@
 import { builder } from "./builder";
 import { prisma } from "./prisma";
 
-// Define the Task type
 builder.prismaObject("Task", {
   fields: (t) => ({
     id: t.exposeInt("id"),
@@ -12,20 +11,84 @@ builder.prismaObject("Task", {
   }),
 });
 
-//Placeholder
+// ----------QUERIES----------
+
 builder.queryType({
   fields: (t) => ({
-    // Placeholder query
-    hello: t.string({
-      resolve: () => "Hello World!",
+    //query tasks with optional search argument
+    tasks: t.prismaField({
+      type: ["Task"],
+      args: {
+        search: t.arg.string({ required: false }),
+      },
+      resolve: async (query, root, args) => {
+        try {
+          const { search } = args;
+
+          if (search !== null && search !== undefined) {
+            if (typeof search !== "string" || search.length === 0) {
+              throw new Error("Search term must be a non-empty string");
+            }
+            if (search.length > 100) {
+              throw new Error("Search term is too long");
+            }
+          }
+          const where = search
+            ? {
+                title: {
+                  contains: search,
+                },
+              }
+            : {};
+
+          return await prisma.task.findMany({
+            where,
+            orderBy: {
+              createdAt: "desc",
+            },
+          });
+        } catch (error) {
+          if (error instanceof Error) {
+            throw new Error(`Failed to fetch tasks: ${error.message}`);
+          }
+          throw new Error("Failed to fetch tasks");
+        }
+      },
+    }),
+
+    //query task by id
+    task: t.prismaField({
+      type: "Task",
+      nullable: true,
+      args: {
+        id: t.arg.id({ required: true }),
+      },
+      resolve: async (query, root, args) => {
+        try {
+          const id = Number(args.id);
+          if (isNaN(id) || id <= 0 || !Number.isInteger(id)) {
+            throw new Error("ID must be a positive integer");
+          }
+
+          return await prisma.task.findUnique({
+            where: { id },
+          });
+        } catch (error) {
+          if (error instanceof Error) {
+            throw new Error(`Failed to fetch task: ${error.message}`);
+          }
+          throw new Error("Failed to fetch task");
+        }
+      },
     }),
   }),
 });
 
-//addTask
-//addTask
+// ----------MUTATIONS----------
+
 builder.mutationType({
   fields: (t) => ({
+    // addTask mutation
     addTask: t.prismaField({
       type: "Task",
       args: {
@@ -35,7 +98,6 @@ builder.mutationType({
         try {
           const { title } = args;
 
-          // Validate title
           if (!title || title.trim().length === 0) {
             throw new Error("Title is required");
           }
@@ -44,7 +106,6 @@ builder.mutationType({
           }
 
           return await prisma.task.create({
-            // Remove the ...query spread
             data: {
               title: title.trim(),
               completed: false,
@@ -58,8 +119,81 @@ builder.mutationType({
         }
       },
     }),
+
+    // toggleTask mutation
+    toggleTask: t.prismaField({
+      type: "Task",
+      nullable: true,
+      args: {
+        id: t.arg.id({ required: true }),
+      },
+      resolve: async (query, root, args) => {
+        try {
+          const id = Number(args.id);
+
+          if (isNaN(id) || id <= 0 || !Number.isInteger(id)) {
+            throw new Error("ID must be a positive integer");
+          }
+
+          const existingTask = await prisma.task.findUnique({
+            where: { id },
+          });
+
+          if (!existingTask) {
+            return null;
+          }
+
+          return await prisma.task.update({
+            where: { id },
+            data: {
+              completed: !existingTask.completed,
+              updatedAt: new Date(),
+            },
+          });
+        } catch (error) {
+          if (error instanceof Error) {
+            throw new Error(`Failed to toggle task: ${error.message}`);
+          }
+          throw new Error("Failed to toggle task");
+        }
+      },
+    }),
+
+    // deleteTask mutation
+    deleteTask: t.prismaField({
+      type: "Task",
+      nullable: true,
+      args: {
+        id: t.arg.id({ required: true }),
+      },
+      resolve: async (query, root, args) => {
+        try {
+          const id = Number(args.id);
+
+          if (isNaN(id) || id <= 0 || !Number.isInteger(id)) {
+            throw new Error("ID must be a positive integer");
+          }
+
+          const existingTask = await prisma.task.findUnique({
+            where: { id },
+          });
+
+          if (!existingTask) {
+            return null;
+          }
+
+          return await prisma.task.delete({
+            where: { id },
+          });
+        } catch (error) {
+          if (error instanceof Error) {
+            throw new Error(`Failed to delete task: ${error.message}`);
+          }
+          throw new Error("Failed to delete task");
+        }
+      },
+    }),
   }),
 });
 
-// Build and export the schema
 export const schema = builder.toSchema();

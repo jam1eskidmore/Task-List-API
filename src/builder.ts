@@ -20,7 +20,6 @@ export const builder = new SchemaBuilder<{
   },
 });
 
-// Define the DateTime scalar
 builder.scalarType("DateTime", {
   serialize: (date) => date.toISOString(),
   parseValue: (value) => {
