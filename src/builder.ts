@@ -1,6 +1,7 @@
 import SchemaBuilder from "@pothos/core";
 import PrismaPlugin from "@pothos/plugin-prisma";
-import type PrismaTypes from "../generated/prisma/generated";
+import type PrismaTypes from "../generated/prisma/pothos-types";
+import { getDatamodel } from "../generated/prisma/pothos-types";
 import { prisma } from "./prisma";
 
 export const builder = new SchemaBuilder<{
@@ -15,9 +16,11 @@ export const builder = new SchemaBuilder<{
   plugins: [PrismaPlugin],
   prisma: {
     client: prisma,
+    dmmf: getDatamodel(),
   },
 });
 
+// Define the DateTime scalar
 builder.scalarType("DateTime", {
   serialize: (date) => date.toISOString(),
   parseValue: (value) => {

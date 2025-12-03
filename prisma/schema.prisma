@@ -12,7 +12,7 @@ generator client {
 
 generator pothos {
   provider = "prisma-pothos-types"
-  output   = "../generated/prisma/generated.d.ts"
+  output   = "../generated/prisma/pothos-types.ts"
 }
 
 model Task  {
