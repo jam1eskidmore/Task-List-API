@@ -1,5 +1,6 @@
 import { builder } from "./builder";
 import { prisma } from "./prisma";
+import { z } from "zod";
 
 builder.prismaObject("Task", {
   fields: (t) => ({
@@ -10,6 +11,27 @@ builder.prismaObject("Task", {
     updatedAt: t.expose("updatedAt", { type: "DateTime" }),
   }),
 });
+
+// ----------ZOD VALIDATON OBJECT----------
+
+const TaskValidation = {
+  title: z
+    .string()
+    .trim()
+    .min(1, "Title is required")
+    .max(200, "Title is too long (max 200 characters)"),
+
+  id: z
+    .number()
+    .int("ID must be an integer")
+    .positive("ID must be a positive number"),
+
+  search: z
+    .string()
+    .min(1, "Search term must be non-empty")
+    .max(100, "Search term is too long (max 100 characters)")
+    .optional(),
+};
 
 // ----------QUERIES----------
 
@@ -23,16 +45,10 @@ builder.queryType({
       },
       resolve: async (query, root, args) => {
         try {
-          const { search } = args;
+          const search = args.search
+            ? TaskValidation.search.parse(args.search)
+            : undefined;
 
-          if (search !== null && search !== undefined) {
-            if (typeof search !== "string" || search.length === 0) {
-              throw new Error("Search term must be a non-empty string");
-            }
-            if (search.length > 100) {
-              throw new Error("Search term is too long");
-            }
-          }
           const where = search
             ? {
                 title: {
@@ -48,10 +64,17 @@ builder.queryType({
             },
           });
         } catch (error) {
-          if (error instanceof Error) {
-            throw new Error(`Failed to fetch tasks: ${error.message}`);
+          if (error instanceof z.ZodError) {
+            throw new Error(
+              `Validation error: ${
+                error.issues[0]?.message || "Validation failed"
+              }`
+            );
           }
-          throw new Error("Failed to fetch tasks");
+          if (error instanceof Error) {
+            throw new Error(`Failed to [operation]: ${error.message}`);
+          }
+          throw new Error("Failed to [operation]");
         }
       },
     }),
@@ -65,15 +88,19 @@ builder.queryType({
       },
       resolve: async (query, root, args) => {
         try {
-          const id = Number(args.id);
-          if (isNaN(id) || id <= 0 || !Number.isInteger(id)) {
-            throw new Error("ID must be a positive integer");
-          }
+          const id = TaskValidation.id.parse(Number(args.id));
 
           return await prisma.task.findUnique({
             where: { id },
           });
         } catch (error) {
+          if (error instanceof z.ZodError) {
+            throw new Error(
+              `Validation error: ${
+                error.issues[0]?.message || "Validation failed"
+              }`
+            );
+          }
           if (error instanceof Error) {
             throw new Error(`Failed to fetch task: ${error.message}`);
           }
@@ -96,22 +123,22 @@ builder.mutationType({
       },
       resolve: async (query, root, args) => {
         try {
-          const { title } = args;
-
-          if (!title || title.trim().length === 0) {
-            throw new Error("Title is required");
-          }
-          if (title.length > 200) {
-            throw new Error("Title is too long (max 200 characters)");
-          }
+          const title = TaskValidation.title.parse(args.title);
 
           return await prisma.task.create({
             data: {
-              title: title.trim(),
+              title,
               completed: false,
             },
           });
         } catch (error) {
+          if (error instanceof z.ZodError) {
+            throw new Error(
+              `Validation error: ${
+                error.issues[0]?.message || "Validation failed"
+              }`
+            );
+          }
           if (error instanceof Error) {
             throw new Error(`Failed to create task: ${error.message}`);
           }
@@ -129,11 +156,7 @@ builder.mutationType({
       },
       resolve: async (query, root, args) => {
         try {
-          const id = Number(args.id);
-
-          if (isNaN(id) || id <= 0 || !Number.isInteger(id)) {
-            throw new Error("ID must be a positive integer");
-          }
+          const id = TaskValidation.id.parse(Number(args.id));
 
           const existingTask = await prisma.task.findUnique({
             where: { id },
@@ -151,6 +174,13 @@ builder.mutationType({
             },
           });
         } catch (error) {
+          if (error instanceof z.ZodError) {
+            throw new Error(
+              `Validation error: ${
+                error.issues[0]?.message || "Validation failed"
+              }`
+            );
+          }
           if (error instanceof Error) {
             throw new Error(`Failed to toggle task: ${error.message}`);
           }
@@ -168,11 +198,7 @@ builder.mutationType({
       },
       resolve: async (query, root, args) => {
         try {
-          const id = Number(args.id);
-
-          if (isNaN(id) || id <= 0 || !Number.isInteger(id)) {
-            throw new Error("ID must be a positive integer");
-          }
+          const id = TaskValidation.id.parse(Number(args.id));
 
           const existingTask = await prisma.task.findUnique({
             where: { id },
@@ -186,6 +212,13 @@ builder.mutationType({
             where: { id },
           });
         } catch (error) {
+          if (error instanceof z.ZodError) {
+            throw new Error(
+              `Validation error: ${
+                error.issues[0]?.message || "Validation failed"
+              }`
+            );
+          }
           if (error instanceof Error) {
             throw new Error(`Failed to delete task: ${error.message}`);
           }
